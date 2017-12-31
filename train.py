@@ -25,6 +25,7 @@ from lesson_func import (
     slide_window,
     search_windows,
     draw_boxes, )
+import util
 
 ### TODO: Tweak these parameters and see how the results change.
 '''
@@ -41,6 +42,11 @@ hog_feat = True  # HOG features on or off
 '''
 
 rand_state = 42
+
+
+@util.h5cache
+def cached_extract_features(*args, **kwargs):
+    return extract_features(*args, **kwargs)
 
 
 def get_test_imgs(test_dir='./test_images'):
@@ -178,12 +184,12 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
                      ('svc', LinearSVC())])
 
     search = RandomizedSearchCV(
-        pipe, param_distributions=params, n_iter=10, n_jobs=2)
+        pipe, param_distributions=params, n_iter=5, n_jobs=1, pre_dispatch=1)
 
     # Reduce the sample size because
     # The quiz evaluator times out after 13s of CPU time
     if debug_lv >= 1:
-        sample_size = 500
+        sample_size = 250
         cars = cars[0:sample_size]
         notcars = notcars[0:sample_size]
 
@@ -211,9 +217,10 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     t = time.time()
 
     cvres = search.cv_results_
-    for mean_score, params in zip(cvres['mean_test_score'], cvres['params']):
-        print(np.sqrt(-mean_score), params)
-
+    # for mean_score, params in zip(cvres['mean_test_score'], cvres['params']):
+    # print(np.sqrt(-mean_score), params)
+    print(cvres.keys())
+    print('Bestparam:', search.best_params_)
     joblib.dump(search.best_estimator_, 'pipe.pkl')
     # test(debug_lv=debug_lv)
 

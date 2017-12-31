@@ -1,6 +1,29 @@
+import hashlib
+
 import numpy as np
+import h5py
 
 eps = np.finfo(np.float32).eps
+
+
+def h5cache(fn):
+    def _fn(*args, **kwargs):
+        _cache = h5py.File('cache.h5', 'w')
+
+        kv = ','.join(sorted(['%s=%s' % (k, v) for k, v in kwargs.items()]))
+        cache_key = '/cache/%s' % hashlib.md5(kv.encode('utf-8')).hexdigest()
+
+        if _cache.get(cache_key):
+            return _cache.get(cache_key).value()
+
+        result = fn(*args, **kwargs)
+        assert isinstance(result, np.ndarray)
+
+        _cache[cache_key] = result
+        _cache.close()
+        return result
+
+    return _fn
 
 
 def reject_outliers_noop(data):

@@ -5,8 +5,6 @@ from skimage.feature import hog
 
 from threshold import heatmap
 
-from util import cached
-
 
 # Define a function to return HOG features and visualization
 def get_hog_features(img,
@@ -63,7 +61,6 @@ def color_hist(img, nbins=32, bins_range=(0, 256)):
 
 # Define a function to extract features from a list of images
 # Have this function call bin_spatial() and color_hist()
-@cached
 def extract_features(imgs,
                      color_space='RGB',
                      spatial_size=32,
@@ -133,7 +130,7 @@ def extract_features(imgs,
             file_features.append(hog_features)
         features.append(np.concatenate(file_features))
     # Return list of feature vectors
-    return features
+    return np.array(features)
 
 
 # Define a function that takes an image,
