@@ -9,11 +9,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import time
-from sklearn.externals import joblib
-from sklearn.svm import LinearSVC
-from sklearn.preprocessing import StandardScaler
+from scipy.stats import randint
 from skimage.feature import hog
+from sklearn.base import BaseEstimator
+from sklearn.externals import joblib
+from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.svm import LinearSVC
 
 from lesson_func import (
     heatmap,
@@ -23,7 +27,8 @@ from lesson_func import (
     draw_boxes, )
 
 ### TODO: Tweak these parameters and see how the results change.
-color_space = 'RGB'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+'''
+color_space = 'LUV'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
 orient = 9  # HOG orientations
 pix_per_cell = 8  # HOG pixels per cell
 cell_per_block = 3  # HOG cells per block
@@ -33,6 +38,9 @@ hist_bins = 16  # Number of histogram bins
 spatial_feat = True  # Spatial features on or off
 hist_feat = True  # Histogram features on or off
 hog_feat = True  # HOG features on or off
+'''
+
+rand_state = 42
 
 
 def get_test_imgs(test_dir='./test_images'):
@@ -72,12 +80,105 @@ def get_sliding_win(w, h):
     return sm_windows + md_windows + lg_windows
 
 
+class HogEstimator(BaseEstimator):
+    def __init__(self,
+                 color_space='LUV',
+                 orient=9,
+                 pix_per_cell=8,
+                 cell_per_block=3,
+                 hog_channel='ALL',
+                 spatial_size=(16, 16),
+                 hist_bins=16,
+                 spatial_feat=True,
+                 hist_feat=True,
+                 hog_feat=True):
+        # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+        self.color_space = color_space
+        # HOG orientations
+        self.orient = orient
+        # HOG pixels per cell
+        self.pix_per_cell = pix_per_cell
+        # HOG cells per block
+        self.cell_per_block = cell_per_block
+        # Can be 0, 1, 2, or "ALL"
+        self.hog_channel = hog_channel
+        # Spatial binning dimensions
+        self.spatial_size = spatial_size
+        # Number of histogram bins
+        self.hist_bins = hist_bins
+        # Spatial features on or off
+        self.spatial_feat = spatial_feat
+        # Histogram features on or off
+        self.hist_feat = hist_feat
+        # HOG features on or off
+        self.hog_feat = hog_feat
+
+    def fit_transform(self, X, y=None):
+        return self.fit(X).transform(X)
+
+    def transform(self, X, y=None):
+        print('params:', self.color_space, self.spatial_size, self.hist_bins,
+              self.orient, self.pix_per_cell, self.cell_per_block,
+              self.hog_channel, self.spatial_feat, self.hist_feat,
+              self.hog_feat)
+
+        features = extract_features(
+            X,
+            color_space=self.color_space,
+            spatial_size=self.spatial_size,
+            hist_bins=self.hist_bins,
+            orient=self.orient,
+            pix_per_cell=self.pix_per_cell,
+            cell_per_block=self.cell_per_block,
+            hog_channel=self.hog_channel,
+            spatial_feat=self.spatial_feat,
+            hist_feat=self.hist_feat,
+            hog_feat=self.hog_feat)
+
+        return np.array(features).astype(np.float32)
+
+    def fit(self, X, y=None):
+        return self
+
+
 def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
 
     cars = glob.glob(os.path.join(car_dir, '**/*.png'))
     notcars = glob.glob(os.path.join(notcar_dir, '**/*.png'))
+
+    params = {
+        'hog__color_space': [
+            'RGB',
+            'HSV',
+            'LUV',
+            'HLS',
+            'YUV',
+            'YCrCb',
+        ],
+        'hog__hist_bins': [
+            2,
+            4,
+            8,
+            12,
+        ],
+        'hog__orient': randint(low=4, high=12),
+        'hog__pix_per_cell': randint(low=1, high=4),
+        'hog__cell_per_block': randint(low=3, high=2**3),
+        'hog__spatial_size': [
+            8,
+            16,
+            32,
+        ],
+    }
+    X_scaler = StandardScaler()
+    hog_estimate = HogEstimator()
+    pipe = Pipeline([('hog', hog_estimate), ('scaler', X_scaler),
+                     ('svc', LinearSVC())])
+
+    search = RandomizedSearchCV(
+        pipe, param_distributions=params, n_iter=10, n_jobs=2)
 
     # Reduce the sample size because
     # The quiz evaluator times out after 13s of CPU time
@@ -86,66 +187,35 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
         cars = cars[0:sample_size]
         notcars = notcars[0:sample_size]
 
-    car_features = extract_features(
-        cars,
-        color_space=color_space,
-        spatial_size=spatial_size,
-        hist_bins=hist_bins,
-        orient=orient,
-        pix_per_cell=pix_per_cell,
-        cell_per_block=cell_per_block,
-        hog_channel=hog_channel,
-        spatial_feat=spatial_feat,
-        hist_feat=hist_feat,
-        hog_feat=hog_feat)
+    X = np.array(cars + notcars)
+    y = np.hstack((np.ones(len(cars)), np.zeros(len(notcars))))
 
-    notcar_features = extract_features(
-        notcars,
-        color_space=color_space,
-        spatial_size=spatial_size,
-        hist_bins=hist_bins,
-        orient=orient,
-        pix_per_cell=pix_per_cell,
-        cell_per_block=cell_per_block,
-        hog_channel=hog_channel,
-        spatial_feat=spatial_feat,
-        hist_feat=hist_feat,
-        hog_feat=hog_feat)
-
-    X = np.vstack((car_features, notcar_features)).astype(np.float64)
-    # Fit a per-column scaler
-    print('X', X.shape)
-    X_scaler = StandardScaler().fit(X)
-    # Apply the scaler to X
-    scaled_X = X_scaler.transform(X)
-    print('sX', scaled_X.shape)
-
-    # Define the labels vector
-    y = np.hstack((np.ones(len(car_features)), np.zeros(len(notcar_features))))
+    print(X.shape)
+    print(y.shape)
 
     # Split up data into randomized training and test sets
-    rand_state = np.random.randint(0, 100)
     X_train, X_test, y_train, y_test = train_test_split(
-        scaled_X, y, test_size=0.2, random_state=rand_state)
+        X, y, test_size=0.2, random_state=rand_state)
 
-    print('Using:', orient, 'orientations', pix_per_cell,
-          'pixels per cell and', cell_per_block, 'cells per block')
     print('Feature vector length:', len(X_train[0]))
-    # Use a linear SVC
-    svc = LinearSVC()
+
     # Check the training time for the SVC
     t = time.time()
-    svc.fit(X_train, y_train)
+    search.fit(X_train, y_train)
     t2 = time.time()
     print(round(t2 - t, 2), 'Seconds to train SVC...')
     # Check the score of the SVC
-    print('Test Accuracy of SVC = ', round(svc.score(X_test, y_test), 4))
+    acc = round(search.score(X_test, y_test), 4)
+    print('Test Accuracy of SVC = ', acc)
     # Check the prediction time for a single sample
     t = time.time()
-    joblib.dump(svc, 'svc.pickle')
-    joblib.dump(X_scaler, 'xscaler.pickle')
 
-    test(debug_lv=debug_lv)
+    cvres = search.cv_results_
+    for mean_score, params in zip(cvres['mean_test_score'], cvres['params']):
+        print(np.sqrt(-mean_score), params)
+
+    joblib.dump(search.best_estimator_, 'pipe.pkl')
+    # test(debug_lv=debug_lv)
 
 
 def test(test_out_dir='./output_images', debug_lv=0):
