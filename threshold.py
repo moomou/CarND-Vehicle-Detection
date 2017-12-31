@@ -41,7 +41,7 @@ def draw_labeled_bboxes(img, labels):
     return img
 
 
-def heatmap(img, box_list, threshold=3, debug_lv=0):
+def heatmap(img, box_list, threshold=2, debug_lv=0):
     heat = np.zeros_like(img[:, :, 0]).astype(np.float)
 
     # Add heat to each box in box list

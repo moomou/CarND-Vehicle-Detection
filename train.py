@@ -20,6 +20,18 @@ from lesson_func import (
     search_windows,
     draw_boxes, )
 
+### TODO: Tweak these parameters and see how the results change.
+color_space = 'RGB'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
+orient = 9  # HOG orientations
+pix_per_cell = 8  # HOG pixels per cell
+cell_per_block = 3  # HOG cells per block
+hog_channel = 0  # Can be 0, 1, 2, or "ALL"
+spatial_size = (16, 16)  # Spatial binning dimensions
+hist_bins = 16  # Number of histogram bins
+spatial_feat = True  # Spatial features on or off
+hist_feat = True  # Histogram features on or off
+hog_feat = True  # HOG features on or off
+
 
 def get_test_imgs(test_dir='./test_images'):
     imgs = [
@@ -58,10 +70,7 @@ def get_sliding_win(w, h):
     return sm_windows + md_windows + lg_windows
 
 
-def train(car_dir='./vehicles',
-          notcar_dir='non-vehicles',
-          test_out_dir='./output_images',
-          debug_lv=0):
+def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
 
@@ -74,18 +83,6 @@ def train(car_dir='./vehicles',
         sample_size = 500
         cars = cars[0:sample_size]
         notcars = notcars[0:sample_size]
-
-    ### TODO: Tweak these parameters and see how the results change.
-    color_space = 'RGB'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-    orient = 9  # HOG orientations
-    pix_per_cell = 8  # HOG pixels per cell
-    cell_per_block = 3  # HOG cells per block
-    hog_channel = 0  # Can be 0, 1, 2, or "ALL"
-    spatial_size = (16, 16)  # Spatial binning dimensions
-    hist_bins = 16  # Number of histogram bins
-    spatial_feat = True  # Spatial features on or off
-    hist_feat = True  # Histogram features on or off
-    hog_feat = True  # HOG features on or off
 
     car_features = extract_features(
         cars,
@@ -144,8 +141,19 @@ def train(car_dir='./vehicles',
     # Check the prediction time for a single sample
     t = time.time()
     joblib.dump(svc, 'svc.pickle')
+    joblib.dump(X_scaler, 'xscaler.pickle')
+
+    test(debug_lv=debug_lv)
+
+
+def test(test_out_dir='./output_images', debug_lv=0):
+    imgs = get_test_imgs()
+    h, w, c = imgs[0].shape
 
     all_windows = get_sliding_win(w, h)
+
+    svc = joblib.load('./svc.pickle')
+    X_scaler = joblib.load('./xscaler.pickle')
 
     # Uncomment the following line if you extracted training
     # data from .png images (scaled 0 to 1 by mpimg) and the
@@ -184,4 +192,5 @@ if __name__ == '__main__':
     import fire
     fire.Fire({
         't': train,
+        'test': test,
     })
