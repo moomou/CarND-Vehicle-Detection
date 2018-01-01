@@ -200,7 +200,7 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     search = RandomizedSearchCV(
         pipe,
         param_distributions=params,
-        n_iter=5,
+        n_iter=10,
         n_jobs=1,
         pre_dispatch=1,
         error_score=0)

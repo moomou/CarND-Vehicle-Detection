@@ -1,1 +1,1 @@
-{"hog__pix_per_cell": 8, "hog__spatial_size": 16, "hog__color_space": "HSV", "hog__orient": 9, "hog__cell_per_block": 3, "hog__hist_bins": 12}
+{"hog__hist_bins": 16, "hog__cell_per_block": 4, "hog__spatial_size": 8, "hog__orient": 10, "hog__pix_per_cell": 8, "hog__color_space": "HLS"}
