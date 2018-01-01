@@ -172,14 +172,12 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
             'YCrCb',
         ],
         'hog__hist_bins': [
-            2,
-            4,
-            8,
             12,
+            16,
         ],
-        'hog__orient': randint(low=4, high=12),
-        'hog__pix_per_cell': randint(low=1, high=4),
-        'hog__cell_per_block': randint(low=3, high=2**3),
+        'hog__orient': [8, 9, 10, 11, 12],
+        'hog__pix_per_cell': [8, 9, 10, 12],
+        'hog__cell_per_block': [3, 4, 5],
         'hog__spatial_size': [
             8,
             16,
@@ -201,7 +199,7 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
 
     # Reduce the sample size because
     # The quiz evaluator times out after 13s of CPU time
-    sample_size = 200
+    sample_size = 250
     cars = sklearn.utils.shuffle(cars)
     cars = cars[0:sample_size]
     notcars = sklearn.utils.shuffle(notcars)
@@ -236,8 +234,8 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
 
 
 def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
-    with open('./hog_param.json') as f:
-        hog_params = json.load(f.read())
+    with open('./hog_params.json') as f:
+        hog_params = {k[5:]: v for k, v in json.load(f).items()}
 
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
@@ -279,14 +277,14 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     acc = round(svc.score(X_test, y_test), 4)
     print('Test Accuracy of SVC = ', acc)
 
-    joblib.dump('./svc.pickle')
-    joblib.dump('./xscaler.pickle')
+    joblib.dump(svc, './svc.pickle')
+    joblib.dump(X_scaler, './xscaler.pickle')
 
     test(debug_lv=debug_lv)
 
 
 def test(test_out_dir='./output_images', debug_lv=0):
-    with open('./hog_param.json') as f:
+    with open('./hog_params.json') as f:
         hog_params = json.load(f.read())
 
     imgs = get_test_imgs()
