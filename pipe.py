@@ -177,6 +177,7 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
     if state_id is not None and state.get('hog_params') is None:
         state = dict(
             counter=0, threshold=3, **_init_vehicle_pipe(h, w), **state)
+        state['heatmap'] = np.zeros_like(rgb_img)
 
     # Uncomment the following line if you extracted training
     # data from .png images (scaled 0 to 1 by mpimg) and the
@@ -185,21 +186,14 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
     # img = orig_img.astype(np.float32) / 255
     hot_windows = search_windows(rgb_img, state['all_windows'], state['svc'],
                                  state['X_scaler'], **state['hog_params'])
-    if state.get('heatmap') is None:
-        # too little info to do anything
-        state['heatmap'] = np.zeros_like(rgb_img)
+    heatmap = state['heatmap']
+    # remove old frame info
+    heatmap -= 0.5
 
-    if state['counter'] and state['counter'] % state['threshold']:
-        heatmap = state['heatmap']
-        draw_img = _heatmap_threshold(
-            rgb_img, heatmap, threshold=state['threshold'])
-        state['heatmap'] = None
-        state['counter'] = 0
-    else:
-        # accumulate data
-        add_heat(state['heatmap'], hot_windows)
-        state['counter'] += 1
-        draw_img = state.get('last_frame', rgb_img)
+    # accumulate data
+    add_heat(heatmap, hot_windows)
+    draw_img = _heatmap_threshold(
+        rgb_img, heatmap, threshold=state['threshold'])
 
     if debug_lv >= 1 and state['heatmap']:
         heatmap = state['heatmap']
@@ -216,7 +210,6 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
         fig.tight_layout()
         plt.show()
 
-    state['last_frame'] = draw_img
     return draw_img
 
 
