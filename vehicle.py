@@ -4,12 +4,10 @@ import json
 import os
 
 import matplotlib.image as mpimg
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import time
+import sklearn
 from scipy.stats import randint
 from skimage.feature import hog
 from sklearn.base import BaseEstimator
@@ -20,6 +18,11 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
+
+import util
 from lesson_func import (
     heatmap,
     extract_features,
@@ -27,7 +30,6 @@ from lesson_func import (
     search_windows,
     draw_boxes,
     add_heat, )
-import util
 
 ### TODO: Tweak these parameters and see how the results change.
 '''
@@ -191,7 +193,9 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     # Reduce the sample size because
     # The quiz evaluator times out after 13s of CPU time
     sample_size = 250
+    cars = sklearn.utils.shuffle(cars)
     cars = cars[0:sample_size]
+    notcars = sklearn.utils.shuffle(notcars)
     notcars = notcars[0:sample_size]
 
     X = np.array(cars + notcars)
