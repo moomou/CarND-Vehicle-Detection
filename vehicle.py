@@ -219,7 +219,11 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     # for mean_score, params in zip(cvres['mean_test_score'], cvres['params']):
     # print(np.sqrt(-mean_score), params)
     print(cvres.keys())
+
     print('Bestparam:', search.best_params_)
+    with open('./hog_params.json', 'w') as f:
+        f.write(json.dumps(search.best_params_))
+
     joblib.dump(search.best_estimator_, 'pipe.pickle')
 
 
@@ -308,6 +312,7 @@ def test(test_out_dir='./output_images', debug_lv=0):
 if __name__ == '__main__':
     import fire
     fire.Fire({
+        's': search,
         't': train,
         'test': test,
     })
