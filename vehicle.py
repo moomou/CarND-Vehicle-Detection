@@ -144,6 +144,10 @@ class HogEstimator(BaseEstimator):
             spatial_feat=self.spatial_feat,
             hist_feat=self.hist_feat,
             hog_feat=self.hog_feat)
+        features = np.array(features).astype(np.float64)
+
+        assert np.any(np.isnan(features)) == False
+        assert np.all(np.isfinite(features))
 
         return np.array(features).astype(np.float64)
 
@@ -188,11 +192,16 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
                      ('svc', LinearSVC())])
 
     search = RandomizedSearchCV(
-        pipe, param_distributions=params, n_iter=5, n_jobs=1, pre_dispatch=1)
+        pipe,
+        param_distributions=params,
+        n_iter=5,
+        n_jobs=1,
+        pre_dispatch=1,
+        error_score=0)
 
     # Reduce the sample size because
     # The quiz evaluator times out after 13s of CPU time
-    sample_size = 250
+    sample_size = 200
     cars = sklearn.utils.shuffle(cars)
     cars = cars[0:sample_size]
     notcars = sklearn.utils.shuffle(notcars)
@@ -218,11 +227,6 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     print('Test Accuracy of SVC = ', acc)
     # Check the prediction time for a single sample
     t = time.time()
-
-    cvres = search.cv_results_
-    # for mean_score, params in zip(cvres['mean_test_score'], cvres['params']):
-    # print(np.sqrt(-mean_score), params)
-    print(cvres.keys())
 
     print('Bestparam:', search.best_params_)
     with open('./hog_params.json', 'w') as f:
