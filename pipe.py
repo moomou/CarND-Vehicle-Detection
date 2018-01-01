@@ -175,8 +175,8 @@ def _vehicle_pipe_search(img, state, idx):
 def vehicle_pipe_search(img, state):
     windows = {}
     windows[0] = _vehicle_pipe_search(np.copy(img), state, 1)
-    windows[1] = _vehicle_pipe_search(np.copy(img), state, 2)
-    hot_windows = windows[0] + windows[1]
+    # windows[1] = _vehicle_pipe_search(np.copy(img), state, 2)
+    hot_windows = windows[0]  # + windows[1]
     return hot_windows
 
 
@@ -199,8 +199,9 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
     heatmap = state['heatmap']
 
     # remove old frame info
-    if state['counter'] % 2 != 0:
+    if state['counter'] % 5 == 0:
         heatmap -= 1
+
     # accumulate data
     add_heat(heatmap, hot_windows)
 
