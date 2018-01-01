@@ -8,6 +8,7 @@ import numpy as np
 import cv2
 import time
 import sklearn
+from tqdm import tqdm
 from sklearn.base import BaseEstimator
 from sklearn.externals import joblib
 from sklearn.model_selection import RandomizedSearchCV
@@ -16,12 +17,11 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
-import matplotlib as mpl
-mpl.use('Agg')
+# import matplotlib as mpl
+# mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 import helper
-import util
 from lesson_func import (
     heatmap,
     extract_features,
@@ -29,8 +29,8 @@ from lesson_func import (
     search_windows,
     draw_boxes,
     add_heat,
-    apply_threshold,
-    draw_labeled_bboxes, )
+    draw_labeled_bboxes,
+    apply_threshold, )
 
 rand_state = 42
 
@@ -47,29 +47,13 @@ def get_sliding_win(w, h, overlap=0.75):
     # divide h into 3 sections
     base_h = h // 2
 
-    # small win
-    sm_windows = slide_window(
+    windows = slide_window(
         x_start_stop=[0, w],
-        y_start_stop=[base_h, base_h + int(base_h * 0.2)],
-        xy_window=(64, 64),
+        y_start_stop=[base_h, h * 0.90],
+        xy_window=(96, 96),
         xy_overlap=(overlap, overlap))
 
-    # medium win
-    md_windows = slide_window(
-        x_start_stop=[0, w],
-        y_start_stop=[
-            base_h + int(base_h * 0.2) // 2, base_h + int(base_h * overlap)
-        ],
-        xy_window=(128, 128),
-        xy_overlap=(overlap, overlap))
-
-    lg_windows = slide_window(
-        x_start_stop=[0, w],
-        y_start_stop=[base_h + int(base_h * overlap) // 2, h],
-        xy_window=(64, 64),
-        xy_overlap=(overlap, overlap))
-
-    return sm_windows + md_windows + lg_windows
+    return windows
 
 
 def _load_hog_params():
@@ -278,6 +262,7 @@ def test(test_out_dir='./output_images', debug_lv=0):
 
     svc = joblib.load('./svc.pickle')
     X_scaler = joblib.load('./xscaler.pickle')
+
     all_windows1 = get_sliding_win(w, h, overlap=0.75)
     all_windows2 = get_sliding_win(w, h, overlap=0.5)
 
@@ -292,7 +277,7 @@ def test(test_out_dir='./output_images', debug_lv=0):
             cv2.rectangle(window_img, win[0], win[1], color, 6)
         cv2.imwrite('window.png', window_img)
 
-    for idx, orig_img in enumerate(imgs):
+    for idx, orig_img in tqdm(enumerate(imgs)):
         img = helper.gaussian_blur(orig_img, 5)
         bimg = img.astype(np.float32) / 255
         img = orig_img.astype(np.float32) / 255

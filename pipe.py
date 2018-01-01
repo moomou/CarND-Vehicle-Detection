@@ -20,7 +20,8 @@ from vehicle import (
     search_windows,
     add_heat,
     apply_threshold,
-    draw_labeled_bboxes, )
+    draw_labeled_bboxes,
+    draw_boxes, )
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -47,8 +48,7 @@ def _init_vehicle_pipe(h, w):
 
     return {
         'hog_params': hog_params,
-        'all_windows1': all_windows1,
-        'all_windows2': all_windows2,
+        'all_windows': [all_windows1, all_windows2],
         'svc': svc,
         'X_scaler': X_scaler,
     }
@@ -160,23 +160,25 @@ def lane_pipe(rgb_img, state_id=None, debug_lv=0):
     return img
 
 
-def _heatmap_threshold(rgb_img, heatmap, threshold=3):
+def _heatmap_threshold(rgb_img, heatmap, threshold=3, debug_lv=0):
     heatmap = apply_threshold(heatmap, threshold)
     heatmap = np.clip(heatmap, 0, 255)
-    draw_img = draw_labeled_bboxes(np.copy(rgb_img), heatmap)
+    draw_img = draw_labeled_bboxes(rgb_img, heatmap, debug_lv=debug_lv)
     return draw_img
 
 
 def _vehicle_pipe_search(img, state, idx):
-    return search_windows(img, state['all_windows%s' % idx], state['svc'],
+    return search_windows(img, state['all_windows'][idx], state['svc'],
                           state['X_scaler'], **state['hog_params'])
 
 
-def vehicle_pipe_search(img, state):
+def vehicle_pipe_search(img, blur_img, state):
     windows = {}
-    windows[0] = _vehicle_pipe_search(np.copy(img), state, 1)
-    # windows[1] = _vehicle_pipe_search(np.copy(img), state, 2)
-    hot_windows = windows[0]  # + windows[1]
+
+    windows[0] = _vehicle_pipe_search(img, state, 0)
+    windows[1] = _vehicle_pipe_search(blur_img, state, 1)
+
+    hot_windows = windows[0] + windows[1]
     return hot_windows
 
 
@@ -190,37 +192,38 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
 
     if state_id is not None and state.get('hog_params') is None:
         state = dict(
-            counter=0, threshold=2, **_init_vehicle_pipe(h, w), **state)
-        state['heatmap'] = np.zeros_like(rgb_img)
+            counter=0, threshold=3, **_init_vehicle_pipe(h, w), **state)
+        state['heatmap'] = np.zeros_like(rgb_img).astype(np.float)
+
+    blur_img = cv2.GaussianBlur(rgb_img, (5, 5), 0)
 
     scaled_img = rgb_img.astype(np.float32) / 255
-    hot_windows = vehicle_pipe_search(scaled_img, state)
+    scaled_blur_img = blur_img.astype(np.float32) / 255
+
+    hot_windows = vehicle_pipe_search(scaled_img, scaled_blur_img, state=state)
 
     heatmap = state['heatmap']
-
     # remove old frame info
-    if state['counter'] % 5 == 0:
+    if state['counter'] % 13 == 0:
         heatmap -= 1
 
     # accumulate data
     add_heat(heatmap, hot_windows)
-
     draw_img = _heatmap_threshold(
-        rgb_img, heatmap, threshold=state['threshold'])
+        rgb_img,
+        # copy, otherwise current accmulation gets wiped
+        np.copy(heatmap),
+        threshold=state['threshold'],
+        debug_lv=debug_lv)
 
     if debug_lv >= 1 and state['heatmap'] is not None:
-        heatmap = state['heatmap']
-        draw_img = _heatmap_threshold(
-            rgb_img, heatmap, threshold=state['threshold'])
+        window_img = draw_boxes(
+            rgb_img, hot_windows, color=(0, 0, 255), thick=6)
+        plt.imshow(window_img)
+        plt.show()
 
-        fig = plt.figure()
-        plt.subplot(121)
+        plt.title('Thresholded')
         plt.imshow(draw_img)
-        plt.title('Car Positions')
-        plt.subplot(122)
-        plt.imshow(heatmap, cmap='hot')
-        plt.title('Heat Map')
-        fig.tight_layout()
         plt.show()
 
     state['counter'] += 1

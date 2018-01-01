@@ -45,11 +45,15 @@ I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an 
 
 I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  I grabbed random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
 
-Here is an example using the `RGB` color space and HOG parameters of `orientations=8`, `pixels_per_cell=(8, 8)` and `cells_per_block=(2, 2)`
+Here is an example using optimized parameters (see section below) for a car and noncar input.
 
-![hog sample](asset/hog_rgb_88822.png)
+Car
+![hog sample](asset/car_hog.png)
 
-The for these can be found in lesson_func.py `get_hog_features` and `single_img_features`.
+Not car
+![hog sample](asset/notcar_hog.png)
+
+The code for HOG can be found in lesson_func.py `get_hog_features` and `single_img_features`.
 
 #### 2. Explain how you settled on your final choice of HOG parameters.
 
@@ -57,14 +61,14 @@ To identify the best parameters for the HOG features, I utilized `RandomizedSear
 
 After the experiment, I obtained the following parameters:
 ```
-{"hog__hist_bins": 2, "hog__pix_per_cell": 2, "hog__spatial_size": 32, "hog__orient": 6, "hog__color_space": "HSV", "hog__cell_per_block": 3}
+{"hog__hist_bins": 16, "hog__cell_per_block": 4, "hog__spatial_size": 8, "hog__orient": 10, "hog__pix_per_cell": 8, "hog__color_space": "HLS"}
 ```
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
 I trained a linear SVM as demonstrated in the lesson and the code can be found in vehicle.py.
 
-For the detailed HOG parameters used, see the previous section. I was able to obtain test set accuracy of XXX%.
+For the detailed HOG parameters used, see the previous section. I was able to obtain test set accuracy of 98%.
 
 ### Sliding Window Search
 
@@ -72,16 +76,22 @@ For the detailed HOG parameters used, see the previous section. I was able to ob
 
 The sliding window search can be found in vehicle.py `get_sliding_win`; this function utilizes the sliding window function from the lesson.
 
-The search strategy is divided into 3 different sliding windows: 32x32px windows, 64x64 windows, and 96x96 windows. The actual region each window type sweep can be seen in the following image.
+The search strategy is conducted using 64x64px windows. The actual region each window type sweep can be seen in the following image.
 
-![sliding win](asset/sliding.png)
+![sliding win](asset/window.png)
+
+The scale and overlap ratio was best trial and error and the intuition that the classifier is trained on 64x64px patches so I used that as the minimum size box.
 
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
+Ultimately I searched on two frames with 2 different sliding windows overlapping rations, specifically 0.75 and 0.5. Additionally, one of the frame is blurred to remove potential noises. In terms of performance of optimization, I run the 2 separate search in parallel using python multiprocessing via `deco` library. Further optimization of finer grain parallelism is possible.
 
-![alt text][image4]
+Example as applied to test images
+![Ex1](asset/0.png)
+
+![Ex2](asset/1.png)
+
 ---
 
 ### Video Implementation
@@ -94,19 +104,23 @@ Here's a [link to my video result](./project_video.mp4)
 
 I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.
 
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
+Additionally, using the assumption that vehicles move relatively slowly in each frame, I retain heatmap values over long periods and decrement heatmap values slowly every frame divisible by 13. See code in pipe.py `vehicle_pipe`
 
-### Here are six frames and their corresponding heatmaps:
+Here's an example result showing the heatmap from a series of frames of video and before and after heatmap thresholding
 
-![alt text][image5]
+### Here are some frames and their corresponding heatmaps:
 
-### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
-![alt text][image6]
+Before #1
+![Before](asset/before_detected_heatmap.png)
 
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![alt text][image7]
+After #1
+![After](asset/detected_heatmap.png)
 
+Before #1
+![Before](asset/before_detected_heatmap.png)
 
+After #1
+![After](asset/detected_heatmap.png)
 
 ---
 

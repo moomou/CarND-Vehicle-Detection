@@ -26,9 +26,24 @@ def apply_threshold(heatmap, threshold):
     return heatmap
 
 
-def draw_labeled_bboxes(img, heatmap):
+def draw_labeled_bboxes(img, heatmap, debug_lv=0):
     # Find final boxes from heatmap using label function
+    img = np.copy(img)
     labels = label(heatmap)
+
+    if debug_lv >= 1:
+        gheat = np.copy(heatmap)
+        gheat[gheat < 0] = 0
+        gheat = gheat / np.max(gheat)
+
+        plt.figure()
+        plt.subplot(121)
+        plt.title('Heat')
+        plt.imshow(gheat, cmap='jet')
+        plt.subplot(122)
+        plt.title('Labels')
+        plt.imshow(labels[0].astype(np.float32), cmap='hot')
+        plt.show()
 
     # Iterate through all detected cars
     for car_number in range(1, labels[1] + 1):
@@ -40,6 +55,11 @@ def draw_labeled_bboxes(img, heatmap):
         # Define a bounding box based on min/max x and y
         bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox),
                                                        np.max(nonzeroy)))
+
+        bbox_area = (bbox[1][0] - bbox[0][0]) * (bbox[1][1] - bbox[0][1])
+        if np.sqrt(bbox_area) < 64:
+            continue
+
         # Draw the box on the image
         cv2.rectangle(img, bbox[0], bbox[1], (0, 0, 255), 6)
     # Return the image
