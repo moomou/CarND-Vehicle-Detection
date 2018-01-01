@@ -13,7 +13,8 @@ import helper
 import helper2
 import util
 from line import Line, xm_per_pix
-from vehicles import (
+from vehicle import (
+    _load_hog_params,
     get_sliding_win,
     joblib,
     search_windows,
@@ -37,9 +38,7 @@ NY = 6
 
 
 def _init_vehicle_pipe(h, w):
-    with open('./hog_param.json') as f:
-        hog_params = json.load(f.read())
-
+    hog_params = _load_hog_params()
     all_windows = get_sliding_win(w, h)
 
     svc = joblib.load('./svc.pickle')
@@ -188,7 +187,7 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
                                  state['X_scaler'], **state['hog_params'])
     heatmap = state['heatmap']
     # remove old frame info
-    heatmap -= 0.5
+    heatmap -= 1
 
     # accumulate data
     add_heat(heatmap, hot_windows)

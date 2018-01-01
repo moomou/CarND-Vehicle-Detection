@@ -3,7 +3,11 @@ import numpy as np
 import cv2
 from skimage.feature import hog
 
-from threshold import heatmap, add_heat, apply_threshold, draw_labeled_bboxes
+from threshold import (
+    heatmap,
+    add_heat,
+    apply_threshold,
+    draw_labeled_bboxes, )
 
 
 # Define a function to return HOG features and visualization
@@ -264,14 +268,16 @@ def search_windows(img,
                    color_space='RGB',
                    spatial_size=(32, 32),
                    hist_bins=32,
-                   hist_range=(0, 256),
                    orient=9,
                    pix_per_cell=8,
                    cell_per_block=2,
-                   hog_channel=0,
+                   hog_channel='ALL',
                    spatial_feat=True,
                    hist_feat=True,
                    hog_feat=True):
+
+    if type(spatial_size) != tuple:
+        spatial_size = (spatial_size, spatial_size)
 
     #1) Create an empty list to receive positive detection windows
     on_windows = []
@@ -296,7 +302,6 @@ def search_windows(img,
             hog_feat=hog_feat)
         #5) Scale extracted features to be fed to classifier
         # print('Scaler', dir(scaler))
-        # print('features', features.shape)
         test_features = scaler.transform(np.array(features).reshape(1, -1))
         #6) Predict using your classifier
         prediction = clf.predict(test_features)

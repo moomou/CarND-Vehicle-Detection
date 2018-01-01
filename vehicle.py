@@ -29,7 +29,9 @@ from lesson_func import (
     slide_window,
     search_windows,
     draw_boxes,
-    add_heat, )
+    add_heat,
+    apply_threshold,
+    draw_labeled_bboxes, )
 
 ### TODO: Tweak these parameters and see how the results change.
 '''
@@ -88,6 +90,12 @@ def get_sliding_win(w, h):
         xy_overlap=(0.5, 0.5))
 
     return sm_windows + md_windows + lg_windows
+
+
+def _load_hog_params():
+    with open('./hog_params.json') as f:
+        hog_params = {k[5:]: v for k, v in json.load(f).items()}
+    return hog_params
 
 
 class HogEstimator(BaseEstimator):
@@ -234,8 +242,7 @@ def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
 
 
 def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
-    with open('./hog_params.json') as f:
-        hog_params = {k[5:]: v for k, v in json.load(f).items()}
+    hog_params = _load_hog_params()
 
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
@@ -284,8 +291,7 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
 
 
 def test(test_out_dir='./output_images', debug_lv=0):
-    with open('./hog_params.json') as f:
-        hog_params = json.load(f.read())
+    hog_params = _load_hog_params()
 
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
