@@ -175,16 +175,17 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
 
     if state_id is not None and state.get('hog_params') is None:
         state = dict(
-            counter=0, threshold=3, **_init_vehicle_pipe(h, w), **state)
+            counter=0, threshold=0, **_init_vehicle_pipe(h, w), **state)
         state['heatmap'] = np.zeros_like(rgb_img)
 
     # Uncomment the following line if you extracted training
     # data from .png images (scaled 0 to 1 by mpimg) and the
     # image you are searching is a .jpg (scaled 0 to 255)
     # TODO: might be required
-    # img = orig_img.astype(np.float32) / 255
-    hot_windows = search_windows(rgb_img, state['all_windows'], state['svc'],
-                                 state['X_scaler'], **state['hog_params'])
+    scaled_img = rgb_img.astype(np.float32) / 255
+    hot_windows = search_windows(scaled_img, state['all_windows'],
+                                 state['svc'], state['X_scaler'],
+                                 **state['hog_params'])
     heatmap = state['heatmap']
     # remove old frame info
     heatmap -= 1
