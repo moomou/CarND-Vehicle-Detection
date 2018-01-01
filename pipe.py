@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import json
 import glob
 from importlib import reload
 from collections import defaultdict
@@ -8,20 +9,48 @@ from moviepy.editor import VideoFileClip
 import cv2
 import matplotlib.image as mpimg
 import numpy as np
-
 import helper
 import helper2
 import util
 from line import Line, xm_per_pix
+from vehicles import (
+    get_sliding_win,
+    joblib,
+    search_windows,
+    add_heat,
+    apply_threshold,
+    draw_labeled_bboxes, )
+
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
 
 helper = reload(helper)
 util = reload(util)
 
-_state_cache = defaultdict(dict)
+_state_cache_lane = defaultdict(dict)
+_state_cache_vehicle = defaultdict(dict)
 
 # Checkerboard pattern corners
 NX = 9
 NY = 6
+
+
+def _init_vehicle_pipe(h, w):
+    with open('./hog_param.json') as f:
+        hog_params = json.load(f.read())
+
+    all_windows = get_sliding_win(w, h)
+
+    svc = joblib.load('./svc.pickle')
+    X_scaler = joblib.load('./xscaler.pickle')
+
+    return {
+        'hog_params': hog_params,
+        'all_windows': all_windows,
+        'svc': svc,
+        'X_scaler': X_scaler,
+    }
 
 
 def cam_calibration(viz=False):
@@ -130,6 +159,67 @@ def lane_pipe(rgb_img, state_id=None, debug_lv=0):
     return img
 
 
+def _heatmap_threshold(rgb_img, heatmap, threshold=3):
+    heatmap = apply_threshold(heatmap, threshold)
+    heatmap = np.clip(heatmap, 0, 255)
+    draw_img = draw_labeled_bboxes(np.copy(rgb_img), heatmap)
+    return draw_img
+
+
+def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
+    global _state_cache_vehicle
+    _state_cache = _state_cache_vehicle
+
+    h, w, c = rgb_img.shape
+
+    state = _state_cache[state_id]
+
+    if state_id is not None and state.get('hog_params') is None:
+        state = dict(
+            counter=0, threshold=3, **_init_vehicle_pipe(h, w), **state)
+
+    # Uncomment the following line if you extracted training
+    # data from .png images (scaled 0 to 1 by mpimg) and the
+    # image you are searching is a .jpg (scaled 0 to 255)
+    # TODO: might be required
+    # img = orig_img.astype(np.float32) / 255
+    hot_windows = search_windows(rgb_img, state['all_windows'], state['svc'],
+                                 state['X_scaler'], **state['hog_params'])
+    if state.get('heatmap') is None:
+        # too little info to do anything
+        state['heatmap'] = np.zeros_like(rgb_img)
+
+    if state['counter'] and state['counter'] % state['threshold']:
+        heatmap = state['heatmap']
+        draw_img = _heatmap_threshold(
+            rgb_img, heatmap, threshold=state['threshold'])
+        state['heatmap'] = None
+        state['counter'] = 0
+    else:
+        # accumulate data
+        add_heat(state['heatmap'], hot_windows)
+        state['counter'] += 1
+        draw_img = state.get('last_frame', rgb_img)
+
+    if debug_lv >= 1 and state['heatmap']:
+        heatmap = state['heatmap']
+        draw_img = _heatmap_threshold(
+            rgb_img, heatmap, threshold=state['threshold'])
+
+        fig = plt.figure()
+        plt.subplot(121)
+        plt.imshow()
+        plt.title('Car Positions')
+        plt.subplot(122)
+        plt.imshow(heatmap, cmap='hot')
+        plt.title('Heat Map')
+        fig.tight_layout()
+        plt.show()
+
+    state['last_frame'] = draw_img
+    return draw_img
+
+
 def process_image(output_root='./output_images',
                   img_root='test_images',
                   debug_lv=0):
@@ -152,7 +242,8 @@ def process_video(vidpath, start=None, end=None, debug_lv=0):
     output_path = os.path.join('./test_videos_output', state_id)
 
     def process_image(image):
-        result = lane_pipe(image, state_id, debug_lv)
+        # result = lane_pipe(image, state_id, debug_lv)
+        result = vehicle_pipe(image, state_id, debug_lv)
         return result
 
     clip = VideoFileClip(vidpath)

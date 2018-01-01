@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import glob
+import json
 import os
 
 import matplotlib.image as mpimg
@@ -24,7 +25,8 @@ from lesson_func import (
     extract_features,
     slide_window,
     search_windows,
-    draw_boxes, )
+    draw_boxes,
+    add_heat, )
 import util
 
 ### TODO: Tweak these parameters and see how the results change.
@@ -141,13 +143,13 @@ class HogEstimator(BaseEstimator):
             hist_feat=self.hist_feat,
             hog_feat=self.hog_feat)
 
-        return np.array(features).astype(np.float32)
+        return np.array(features).astype(np.float64)
 
     def fit(self, X, y=None):
         return self
 
 
-def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
+def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
 
@@ -188,10 +190,9 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
 
     # Reduce the sample size because
     # The quiz evaluator times out after 13s of CPU time
-    if debug_lv >= 1:
-        sample_size = 250
-        cars = cars[0:sample_size]
-        notcars = notcars[0:sample_size]
+    sample_size = 250
+    cars = cars[0:sample_size]
+    notcars = notcars[0:sample_size]
 
     X = np.array(cars + notcars)
     y = np.hstack((np.ones(len(cars)), np.zeros(len(notcars))))
@@ -202,8 +203,6 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     # Split up data into randomized training and test sets
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=rand_state)
-
-    print('Feature vector length:', len(X_train[0]))
 
     # Check the training time for the SVC
     t = time.time()
@@ -221,11 +220,63 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
     # print(np.sqrt(-mean_score), params)
     print(cvres.keys())
     print('Bestparam:', search.best_params_)
-    joblib.dump(search.best_estimator_, 'pipe.pkl')
-    # test(debug_lv=debug_lv)
+    joblib.dump(search.best_estimator_, 'pipe.pickle')
+
+
+def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
+    with open('./hog_param.json') as f:
+        hog_params = json.load(f.read())
+
+    imgs = get_test_imgs()
+    h, w, c = imgs[0].shape
+
+    cars = glob.glob(os.path.join(car_dir, '**/*.png'))
+    notcars = glob.glob(os.path.join(notcar_dir, '**/*.png'))
+
+    X_scaler = StandardScaler()
+    hog_estimate = HogEstimator(**hog_params)
+    svc = LinearSVC()
+
+    # Reduce the sample size because
+    # The quiz evaluator times out after 13s of CPU time
+    if debug_lv >= 1:
+        sample_size = 250
+        cars = cars[0:sample_size]
+        notcars = notcars[0:sample_size]
+
+    X = np.array(cars + notcars)
+    X = hog_estimate.transform(X)
+    X = X_scaler.fit_transform(X)
+    y = np.hstack((np.ones(len(cars)), np.zeros(len(notcars))))
+
+    print(X.shape)
+    print(y.shape)
+
+    # Split up data into randomized training and test sets
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=rand_state)
+
+    print('Feature vector length:', len(X_train[0]))
+
+    # Check the training time for the SVC
+    t = time.time()
+    svc.fit(X_train, y_train)
+    t2 = time.time()
+    print(round(t2 - t, 2), 'Seconds to train SVC...')
+    # Check the score of the SVC
+    acc = round(svc.score(X_test, y_test), 4)
+    print('Test Accuracy of SVC = ', acc)
+
+    joblib.dump('./svc.pickle')
+    joblib.dump('./xscaler.pickle')
+
+    test(debug_lv=debug_lv)
 
 
 def test(test_out_dir='./output_images', debug_lv=0):
+    with open('./hog_param.json') as f:
+        hog_params = json.load(f.read())
+
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
 
@@ -240,21 +291,8 @@ def test(test_out_dir='./output_images', debug_lv=0):
     for idx, orig_img in enumerate(imgs):
         img = orig_img.astype(np.float32) / 255
 
-        hot_windows = search_windows(
-            img,
-            all_windows,
-            svc,
-            X_scaler,
-            color_space=color_space,
-            spatial_size=spatial_size,
-            hist_bins=hist_bins,
-            orient=orient,
-            pix_per_cell=pix_per_cell,
-            cell_per_block=cell_per_block,
-            hog_channel=hog_channel,
-            spatial_feat=spatial_feat,
-            hist_feat=hist_feat,
-            hog_feat=hog_feat)
+        hot_windows = search_windows(img, all_windows, svc, X_scaler,
+                                     **hog_params)
 
         window_img = heatmap(orig_img, hot_windows, debug_lv=debug_lv)
         cv2.imwrite(os.path.join(test_out_dir, '%s.png' % idx), window_img)

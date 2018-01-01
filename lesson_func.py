@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from skimage.feature import hog
 
-from threshold import heatmap
+from threshold import heatmap, add_heat, apply_threshold, draw_labeled_bboxes
 
 
 # Define a function to return HOG features and visualization

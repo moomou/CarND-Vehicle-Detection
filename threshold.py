@@ -26,7 +26,10 @@ def apply_threshold(heatmap, threshold):
     return heatmap
 
 
-def draw_labeled_bboxes(img, labels):
+def draw_labeled_bboxes(img, heatmap):
+    # Find final boxes from heatmap using label function
+    labels = label(heatmap)
+
     # Iterate through all detected cars
     for car_number in range(1, labels[1] + 1):
         # Find pixels with each car_number label value
@@ -50,16 +53,12 @@ def heatmap(img, box_list, threshold=2, debug_lv=0):
     heat = add_heat(heat, box_list)
 
     # Apply threshold to help remove false positives
-    heat = apply_threshold(heat, 1)
+    heat = apply_threshold(heat, threshold)
 
     # Visualize the heatmap when displaying
     heatmap = np.clip(heat, 0, 255)
-    # Remove anything less than 2 votes
-    heatmap[heatmap < threshold] = 0
 
-    # Find final boxes from heatmap using label function
-    labels = label(heatmap)
-    draw_img = draw_labeled_bboxes(np.copy(img), labels)
+    draw_img = draw_labeled_bboxes(np.copy(img), heatmap)
 
     if debug_lv >= 1:
         fig = plt.figure()
