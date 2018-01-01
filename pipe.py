@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 import os
-import json
 import glob
 from importlib import reload
 from collections import defaultdict
 from moviepy.editor import VideoFileClip
 
 import cv2
-import matplotlib.image as mpimg
-import numpy as np
+import deco
 import helper
 import helper2
+import matplotlib.image as mpimg
+import numpy as np
 import util
 from line import Line, xm_per_pix
 from vehicle import (
@@ -39,14 +39,16 @@ NY = 6
 
 def _init_vehicle_pipe(h, w):
     hog_params = _load_hog_params()
-    all_windows = get_sliding_win(w, h)
+    all_windows1 = get_sliding_win(w, h, overlap=0.75)
+    all_windows2 = get_sliding_win(w, h, overlap=0.5)
 
     svc = joblib.load('./svc.pickle')
     X_scaler = joblib.load('./xscaler.pickle')
 
     return {
         'hog_params': hog_params,
-        'all_windows': all_windows,
+        'all_windows1': all_windows1,
+        'all_windows2': all_windows2,
         'svc': svc,
         'X_scaler': X_scaler,
     }
@@ -165,6 +167,19 @@ def _heatmap_threshold(rgb_img, heatmap, threshold=3):
     return draw_img
 
 
+def _vehicle_pipe_search(img, state, idx):
+    return search_windows(img, state['all_windows%s' % idx], state['svc'],
+                          state['X_scaler'], **state['hog_params'])
+
+
+def vehicle_pipe_search(img, state):
+    windows = {}
+    windows[0] = _vehicle_pipe_search(np.copy(img), state, 1)
+    windows[1] = _vehicle_pipe_search(np.copy(img), state, 2)
+    hot_windows = windows[0] + windows[1]
+    return hot_windows
+
+
 def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
     global _state_cache_vehicle
     _state_cache = _state_cache_vehicle
@@ -175,34 +190,31 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
 
     if state_id is not None and state.get('hog_params') is None:
         state = dict(
-            counter=0, threshold=0, **_init_vehicle_pipe(h, w), **state)
+            counter=0, threshold=2, **_init_vehicle_pipe(h, w), **state)
         state['heatmap'] = np.zeros_like(rgb_img)
 
-    # Uncomment the following line if you extracted training
-    # data from .png images (scaled 0 to 1 by mpimg) and the
-    # image you are searching is a .jpg (scaled 0 to 255)
-    # TODO: might be required
     scaled_img = rgb_img.astype(np.float32) / 255
-    hot_windows = search_windows(scaled_img, state['all_windows'],
-                                 state['svc'], state['X_scaler'],
-                                 **state['hog_params'])
-    heatmap = state['heatmap']
-    # remove old frame info
-    heatmap -= 1
+    hot_windows = vehicle_pipe_search(scaled_img, state)
 
+    heatmap = state['heatmap']
+
+    # remove old frame info
+    if state['counter'] % 2 != 0:
+        heatmap -= 1
     # accumulate data
     add_heat(heatmap, hot_windows)
+
     draw_img = _heatmap_threshold(
         rgb_img, heatmap, threshold=state['threshold'])
 
-    if debug_lv >= 1 and state['heatmap']:
+    if debug_lv >= 1 and state['heatmap'] is not None:
         heatmap = state['heatmap']
         draw_img = _heatmap_threshold(
             rgb_img, heatmap, threshold=state['threshold'])
 
         fig = plt.figure()
         plt.subplot(121)
-        plt.imshow()
+        plt.imshow(draw_img)
         plt.title('Car Positions')
         plt.subplot(122)
         plt.imshow(heatmap, cmap='hot')
@@ -210,6 +222,7 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
         fig.tight_layout()
         plt.show()
 
+    state['counter'] += 1
     return draw_img
 
 

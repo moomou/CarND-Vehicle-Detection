@@ -8,8 +8,6 @@ import numpy as np
 import cv2
 import time
 import sklearn
-from scipy.stats import randint
-from skimage.feature import hog
 from sklearn.base import BaseEstimator
 from sklearn.externals import joblib
 from sklearn.model_selection import RandomizedSearchCV
@@ -22,6 +20,7 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
+import helper
 import util
 from lesson_func import (
     heatmap,
@@ -33,26 +32,7 @@ from lesson_func import (
     apply_threshold,
     draw_labeled_bboxes, )
 
-### TODO: Tweak these parameters and see how the results change.
-'''
-color_space = 'LUV'  # Can be RGB, HSV, LUV, HLS, YUV, YCrCb
-orient = 9  # HOG orientations
-pix_per_cell = 8  # HOG pixels per cell
-cell_per_block = 3  # HOG cells per block
-hog_channel = 0  # Can be 0, 1, 2, or "ALL"
-spatial_size = (16, 16)  # Spatial binning dimensions
-hist_bins = 16  # Number of histogram bins
-spatial_feat = True  # Spatial features on or off
-hist_feat = True  # Histogram features on or off
-hog_feat = True  # HOG features on or off
-'''
-
 rand_state = 42
-
-
-@util.h5cache
-def cached_extract_features(*args, **kwargs):
-    return extract_features(*args, **kwargs)
 
 
 def get_test_imgs(test_dir='./test_images'):
@@ -63,31 +43,31 @@ def get_test_imgs(test_dir='./test_images'):
     return imgs
 
 
-def get_sliding_win(w, h):
+def get_sliding_win(w, h, overlap=0.75):
     # divide h into 3 sections
     base_h = h // 2
 
     # small win
     sm_windows = slide_window(
         x_start_stop=[0, w],
-        y_start_stop=[base_h, base_h + int(base_h * 0.1)],
-        xy_window=(32, 32),
-        xy_overlap=(0.5, 0.5))
+        y_start_stop=[base_h, base_h + int(base_h * 0.2)],
+        xy_window=(64, 64),
+        xy_overlap=(overlap, overlap))
 
-    # med win
+    # medium win
     md_windows = slide_window(
         x_start_stop=[0, w],
         y_start_stop=[
-            base_h + int(base_h * 0.1) // 2, base_h + int(base_h * 0.5)
+            base_h + int(base_h * 0.2) // 2, base_h + int(base_h * overlap)
         ],
-        xy_window=(64, 64),
-        xy_overlap=(0.5, 0.5))
+        xy_window=(128, 128),
+        xy_overlap=(overlap, overlap))
 
     lg_windows = slide_window(
         x_start_stop=[0, w],
-        y_start_stop=[base_h + int(base_h * 0.5) // 2, h],
-        xy_window=(96, 96),
-        xy_overlap=(0.5, 0.5))
+        y_start_stop=[base_h + int(base_h * overlap) // 2, h],
+        xy_window=(64, 64),
+        xy_overlap=(overlap, overlap))
 
     return sm_windows + md_windows + lg_windows
 
@@ -296,27 +276,40 @@ def test(test_out_dir='./output_images', debug_lv=0):
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
 
-    all_windows = get_sliding_win(w, h)
-
     svc = joblib.load('./svc.pickle')
     X_scaler = joblib.load('./xscaler.pickle')
+    all_windows1 = get_sliding_win(w, h, overlap=0.75)
+    all_windows2 = get_sliding_win(w, h, overlap=0.5)
 
-    # Uncomment the following line if you extracted training
-    # data from .png images (scaled 0 to 1 by mpimg) and the
-    # image you are searching is a .jpg (scaled 0 to 255)
+    if debug_lv >= 2:
+        window_img = np.copy(imgs[0])
+        # visualize search windows
+        for widx, win in enumerate(all_windows1):
+            color = (0, 0, 255)
+            if widx % 2 == 0:
+                color = (0, 255, 0)
+            # Draw the box on the image
+            cv2.rectangle(window_img, win[0], win[1], color, 6)
+        cv2.imwrite('window.png', window_img)
+
     for idx, orig_img in enumerate(imgs):
+        img = helper.gaussian_blur(orig_img, 5)
+        bimg = img.astype(np.float32) / 255
         img = orig_img.astype(np.float32) / 255
 
-        hot_windows = search_windows(img, all_windows, svc, X_scaler,
-                                     **hog_params)
+        hot_windows1 = search_windows(img, all_windows1, svc, X_scaler,
+                                      **hog_params)
+        hot_windows2 = search_windows(bimg, all_windows2, svc, X_scaler,
+                                      **hog_params)
+        hot_windows = hot_windows1 + hot_windows2
 
-        window_img = heatmap(orig_img, hot_windows, debug_lv=debug_lv)
+        window_img = heatmap(
+            orig_img, hot_windows, threshold=2, debug_lv=debug_lv)
         cv2.imwrite(os.path.join(test_out_dir, '%s.png' % idx), window_img)
 
         if debug_lv >= 1:
             window_img = draw_boxes(
                 np.copy(img), hot_windows, color=(0, 0, 255), thick=6)
-
             plt.imshow(window_img)
             plt.show()
 
