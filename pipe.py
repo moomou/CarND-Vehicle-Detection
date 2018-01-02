@@ -11,8 +11,10 @@ import helper
 import helper2
 import matplotlib.image as mpimg
 import numpy as np
+
 import util
 from line import Line, xm_per_pix
+from hog_sample import find_cars
 from vehicle import (
     _load_hog_params,
     get_sliding_win,
@@ -36,6 +38,10 @@ _state_cache_vehicle = defaultdict(dict)
 # Checkerboard pattern corners
 NX = 9
 NY = 6
+
+ystart = 400
+ystop = 656
+scale = 1.5
 
 
 def _init_vehicle_pipe(h, w):
@@ -192,15 +198,16 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
 
     if state_id is not None and state.get('hog_params') is None:
         state = dict(
-            counter=0, threshold=4, **_init_vehicle_pipe(h, w), **state)
+            counter=0, threshold=6, **_init_vehicle_pipe(h, w), **state)
         state['heatmap'] = np.zeros_like(rgb_img).astype(np.float)
 
     blur_img = cv2.GaussianBlur(rgb_img, (5, 5), 0)
 
-    scaled_img = rgb_img.astype(np.float32) / 255
-    scaled_blur_img = blur_img.astype(np.float32) / 255
-
-    hot_windows = vehicle_pipe_search(scaled_img, scaled_blur_img, state=state)
+    hot_windows1 = find_cars(rgb_img, ystart, ystop, scale, state['svc'],
+                             state['X_scaler'], **state['hog_params'])
+    hot_windows2 = find_cars(blur_img, ystart, ystop, scale, state['svc'],
+                             state['X_scaler'], **state['hog_params'])
+    hot_windows = hot_windows1 + hot_windows2
 
     heatmap = state['heatmap']
     # remove old frame info
