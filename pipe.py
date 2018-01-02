@@ -204,7 +204,7 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
 
     heatmap = state['heatmap']
     # remove old frame info
-    if state['counter'] % 13 == 0:
+    if state['counter'] % 20 == 0:
         heatmap -= 1
 
     # accumulate data
@@ -247,9 +247,10 @@ def process_image(output_root='./output_images',
             cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
 
-def process_video(vidpath, start=None, end=None, debug_lv=0):
+def process_video(vidpath, start=None, end=None, outname=None, debug_lv=0):
     state_id = os.path.basename(vidpath)
-    output_path = os.path.join('./test_videos_output', state_id)
+    outname = outname if outname is not None else state_id
+    output_path = os.path.join('./test_videos_output', outname)
 
     def process_image(image):
         # result = lane_pipe(image, state_id, debug_lv)

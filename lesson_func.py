@@ -1,3 +1,4 @@
+import deco
 import matplotlib.image as mpimg
 import numpy as np
 import cv2
@@ -261,6 +262,48 @@ def single_img_features(img,
 
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
+@deco.concurrent
+def _search_window(test_img,
+                   window,
+                   clf,
+                   scaler,
+                   color_space='RGB',
+                   spatial_size=(32, 32),
+                   hist_bins=32,
+                   orient=9,
+                   pix_per_cell=8,
+                   cell_per_block=2,
+                   hog_channel='ALL',
+                   spatial_feat=True,
+                   hist_feat=True,
+                   hog_feat=True):
+    #3) Extract the test window from original image
+    #4) Extract features for that window using single_img_features()
+    features = single_img_features(
+        test_img,
+        color_space=color_space,
+        spatial_size=spatial_size,
+        hist_bins=hist_bins,
+        orient=orient,
+        pix_per_cell=pix_per_cell,
+        cell_per_block=cell_per_block,
+        hog_channel=hog_channel,
+        spatial_feat=spatial_feat,
+        hist_feat=hist_feat,
+        hog_feat=hog_feat)
+    #5) Scale extracted features to be fed to classifier
+    # print('Scaler', dir(scaler))
+    test_features = scaler.transform(np.array(features).reshape(1, -1))
+    #6) Predict using your classifier
+    prediction = clf.predict(test_features)
+    #7) If positive (prediction == 1) then save the window
+    if prediction == 1:
+        return window
+
+    return None
+
+
+@deco.synchronized
 def search_windows(img,
                    windows,
                    clf,
@@ -280,16 +323,17 @@ def search_windows(img,
         spatial_size = (spatial_size, spatial_size)
 
     #1) Create an empty list to receive positive detection windows
-    on_windows = []
+    on_windows = [None] * len(windows)
     #2) Iterate over all windows in the list
-    for window in windows:
-        #3) Extract the test window from original image
+    for idx, window in enumerate(windows):
         test_img = cv2.resize(
             img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64,
                                                                         64))
-        #4) Extract features for that window using single_img_features()
-        features = single_img_features(
+        on_windows[idx] = _search_window(
             test_img,
+            window,
+            clf,
+            scaler,
             color_space=color_space,
             spatial_size=spatial_size,
             hist_bins=hist_bins,
@@ -300,13 +344,6 @@ def search_windows(img,
             spatial_feat=spatial_feat,
             hist_feat=hist_feat,
             hog_feat=hog_feat)
-        #5) Scale extracted features to be fed to classifier
-        # print('Scaler', dir(scaler))
-        test_features = scaler.transform(np.array(features).reshape(1, -1))
-        #6) Predict using your classifier
-        prediction = clf.predict(test_features)
-        #7) If positive (prediction == 1) then save the window
-        if prediction == 1:
-            on_windows.append(window)
+
     #8) Return windows for positive detections
-    return on_windows
+    return [win for win in on_windows if win is not None]
