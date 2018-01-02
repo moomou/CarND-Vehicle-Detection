@@ -5,8 +5,8 @@ from importlib import reload
 from collections import defaultdict
 from moviepy.editor import VideoFileClip
 
-import cv2
 import deco
+import cv2
 import helper
 import helper2
 import matplotlib.image as mpimg
@@ -41,7 +41,6 @@ NY = 6
 
 ystart = 400
 ystop = 656
-scale = 1.5
 
 
 def _init_vehicle_pipe(h, w):
@@ -173,21 +172,7 @@ def _heatmap_threshold(rgb_img, heatmap, threshold=3, debug_lv=0):
     return draw_img
 
 
-def _vehicle_pipe_search(img, state, idx):
-    return search_windows(img, state['all_windows'][idx], state['svc'],
-                          state['X_scaler'], **state['hog_params'])
-
-
-def vehicle_pipe_search(img, blur_img, state):
-    windows = {}
-
-    windows[0] = _vehicle_pipe_search(img, state, 0)
-    windows[1] = _vehicle_pipe_search(blur_img, state, 1)
-
-    hot_windows = windows[0] + windows[1]
-    return hot_windows
-
-
+@deco.synchronized
 def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
     global _state_cache_vehicle
     _state_cache = _state_cache_vehicle
@@ -198,30 +183,25 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
 
     if state_id is not None and state.get('hog_params') is None:
         state = dict(
-            counter=0, threshold=6, **_init_vehicle_pipe(h, w), **state)
-        state['heatmap'] = np.zeros_like(rgb_img).astype(np.float)
+            counter=0, threshold=5, **_init_vehicle_pipe(h, w), **state)
+    state['heatmap'] = np.zeros_like(rgb_img).astype(np.float)
 
     blur_img = cv2.GaussianBlur(rgb_img, (5, 5), 0)
 
-    hot_windows1 = find_cars(rgb_img, ystart, ystop, scale, state['svc'],
-                             state['X_scaler'], **state['hog_params'])
-    hot_windows2 = find_cars(blur_img, ystart, ystop, scale, state['svc'],
-                             state['X_scaler'], **state['hog_params'])
-    hot_windows = hot_windows1 + hot_windows2
+    windows = {}
+    windows[0] = find_cars(rgb_img, ystart, ystop, 1.5, state['svc'], state['X_scaler'], **state['hog_params'])
+    windows[1] = find_cars(rgb_img, ystart, ystop, 1., state['svc'], state['X_scaler'], **state['hog_params'])
+    windows[2] = find_cars(blur_img, ystart, ystop, 1.5, state['svc'], state['X_scaler'], **state['hog_params'])
+    windows[3] = find_cars(blur_img, ystart, ystop, 1., state['svc'], state['X_scaler'], **state['hog_params'])
+    hot_windows = windows[0] + windows[1] + windows[2] + windows[3]
 
     heatmap = state['heatmap']
-    # remove old frame info
-    if state['counter'] % 15 == 0:
-        heatmap -= 2
-
-    # accumulate data
     add_heat(heatmap, hot_windows)
-    draw_img = _heatmap_threshold(
-        rgb_img,
-        # copy, otherwise current accmulation gets wiped
-        np.copy(heatmap),
-        threshold=state['threshold'],
-        debug_lv=debug_lv)
+
+    heatmap = apply_threshold(heatmap, state['threshold'])
+    heatmap = heatmap + state.get('last_heatmap', np.zeros_like(heatmap))
+    heatmap = np.clip(heatmap, 0, 255)
+    draw_img = draw_labeled_bboxes(rgb_img, heatmap, debug_lv=debug_lv)
 
     if debug_lv >= 1 and state['heatmap'] is not None:
         window_img = draw_boxes(
@@ -233,6 +213,7 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
         plt.imshow(draw_img)
         plt.show()
 
+    state['last_heatmap'] = heatmap
     state['counter'] += 1
     return draw_img
 

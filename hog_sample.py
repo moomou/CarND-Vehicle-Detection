@@ -1,5 +1,4 @@
 import deco
-
 import numpy as np
 import cv2
 
@@ -7,7 +6,6 @@ from lesson_func import (convert_color, get_hog_features, bin_spatial,
                          color_hist)
 
 
-# @deco.concurrent
 def _find_car(patch, hog_features, svc, X_scaler, xleft, ystart, ytop, window,
               scale, spatial_size, hist_bins):
     # Get color features
@@ -31,7 +29,7 @@ def _find_car(patch, hog_features, svc, X_scaler, xleft, ystart, ytop, window,
 
 
 # Define a single function that can extract features using hog sub-sampling and make predictions
-# @deco.synchronized
+@deco.concurrent
 def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell,
               cell_per_block, spatial_size, hist_bins, color_space):
     if type(spatial_size) != tuple:
@@ -56,7 +54,7 @@ def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell,
     # 64 was the orginal sampling rate, with 8 cells and 8 pix per cell
     window = 64
     nblocks_per_window = (window // pix_per_cell) - cell_per_block + 1
-    cells_per_step = 2  # Instead of overlap, define how many cells to step
+    cells_per_step = 3  # Instead of overlap, define how many cells to step
     nxsteps = (nxblocks - nblocks_per_window) // cells_per_step + 1
     nysteps = (nyblocks - nblocks_per_window) // cells_per_step + 1
 
