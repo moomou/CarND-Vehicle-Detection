@@ -172,49 +172,71 @@ def _heatmap_threshold(rgb_img, heatmap, threshold=3, debug_lv=0):
     return draw_img
 
 
-@deco.synchronized
+# @deco.synchronized
 def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
     global _state_cache_vehicle
-    _state_cache = _state_cache_vehicle
+    state = _state_cache_vehicle[state_id]
 
     h, w, c = rgb_img.shape
 
-    state = _state_cache[state_id]
-
     if state_id is not None and state.get('hog_params') is None:
-        state = dict(
-            counter=0, threshold=5, **_init_vehicle_pipe(h, w), **state)
-    state['heatmap'] = np.zeros_like(rgb_img).astype(np.float)
+        print('state init')
+        state = dict(counter=0, **_init_vehicle_pipe(h, w), **state)
+        state['last_heatmaps'] = []
 
     blur_img = cv2.GaussianBlur(rgb_img, (5, 5), 0)
-
     windows = {}
-    windows[0] = find_cars(rgb_img, ystart, ystop, 1.5, state['svc'], state['X_scaler'], **state['hog_params'])
-    windows[1] = find_cars(rgb_img, ystart, ystop, 1., state['svc'], state['X_scaler'], **state['hog_params'])
-    windows[2] = find_cars(blur_img, ystart, ystop, 1.5, state['svc'], state['X_scaler'], **state['hog_params'])
-    windows[3] = find_cars(blur_img, ystart, ystop, 1., state['svc'], state['X_scaler'], **state['hog_params'])
-    hot_windows = windows[0] + windows[1] + windows[2] + windows[3]
+    windows[0] = find_cars(rgb_img, ystart, ystop, 1.5, state['svc'],
+                           state['X_scaler'], **state['hog_params'])
+    # windows[1] = find_cars(rgb_img, ystart, ystop, 1., state['svc'],
+    # state['X_scaler'], **state['hog_params'])
+    windows[2] = find_cars(blur_img, ystart, ystop, 1.5, state['svc'],
+                           state['X_scaler'], **state['hog_params'])
+    # windows[3] = find_cars(blur_img, ystart, ystop, 1., state['svc'],
+    # state['X_scaler'], **state['hog_params'])
+    hot_windows = windows[0] + windows[2]  # + windows[3]
+    frame_heatmap = np.zeros_like(rgb_img).astype(np.float)
 
-    heatmap = state['heatmap']
-    add_heat(heatmap, hot_windows)
+    add_heat(frame_heatmap, hot_windows)
 
-    heatmap = apply_threshold(heatmap, state['threshold'])
-    heatmap = heatmap + state.get('last_heatmap', np.zeros_like(heatmap))
+    heatmap = np.copy(frame_heatmap)
+    for prev_heatmap in state['last_heatmaps']:
+        heatmap += prev_heatmap
+
+    _debug = debug_lv >= 1 and (state['counter'] % 5 == 0)
+
     heatmap = np.clip(heatmap, 0, 255)
-    draw_img = draw_labeled_bboxes(rgb_img, heatmap, debug_lv=debug_lv)
+    heatmap = apply_threshold(heatmap,
+                              np.percentile(
+                                  heatmap, 97, interpolation='nearest'))
+    draw_img = draw_labeled_bboxes(
+        rgb_img, heatmap, debug_lv=_debug and debug_lv)
 
-    if debug_lv >= 1 and state['heatmap'] is not None:
+    if _debug:
+        print('Max::', np.max(heatmap))
+        print('Min::', np.min(heatmap))
+
         window_img = draw_boxes(
             rgb_img, hot_windows, color=(0, 0, 255), thick=6)
+        fig = plt.figure()
+        plt.subplot(121)
         plt.imshow(window_img)
+        plt.title('Window img')
+        plt.subplot(122)
+        plt.imshow(heatmap, cmap='hot')
+        plt.colorbar()
+        fig.tight_layout()
         plt.show()
 
         plt.title('Thresholded')
         plt.imshow(draw_img)
         plt.show()
 
-    state['last_heatmap'] = heatmap
+    state['last_heatmaps'].append(frame_heatmap)
+    state['last_heatmaps'] = state['last_heatmaps'][:7]
     state['counter'] += 1
+    _state_cache_vehicle[state_id] = state
+
     return draw_img
 
 

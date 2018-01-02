@@ -33,8 +33,7 @@ def draw_labeled_bboxes(img, heatmap, debug_lv=0):
 
     if debug_lv >= 1:
         gheat = np.copy(heatmap)
-        gheat[gheat < 0] = 0
-        gheat = gheat / np.max(gheat)
+        # gheat = gheat / np.max(gheat)
 
         plt.figure()
         plt.subplot(121)

@@ -273,7 +273,7 @@ def single_img_features(img,
 
 # Define a function you will pass an image
 # and the list of windows to be searched (output of slide_windows())
-@deco.concurrent
+# @deco.concurrent
 def _search_window(test_img,
                    window,
                    clf,
