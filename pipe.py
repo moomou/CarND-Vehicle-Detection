@@ -192,7 +192,7 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
 
     if state_id is not None and state.get('hog_params') is None:
         state = dict(
-            counter=0, threshold=3, **_init_vehicle_pipe(h, w), **state)
+            counter=0, threshold=4, **_init_vehicle_pipe(h, w), **state)
         state['heatmap'] = np.zeros_like(rgb_img).astype(np.float)
 
     blur_img = cv2.GaussianBlur(rgb_img, (5, 5), 0)
@@ -204,8 +204,8 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
 
     heatmap = state['heatmap']
     # remove old frame info
-    if state['counter'] % 20 == 0:
-        heatmap -= 1
+    if state['counter'] % 15 == 0:
+        heatmap -= 2
 
     # accumulate data
     add_heat(heatmap, hot_windows)
