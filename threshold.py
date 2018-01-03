@@ -65,11 +65,12 @@ def draw_labeled_bboxes(img, heatmap, debug_lv=0):
     return img
 
 
-def heatmap(img, box_list, threshold=0, debug_lv=0):
+def heatmap(img, box_list, debug_lv=0):
     heat = np.zeros_like(img[:, :, 0]).astype(np.float)
 
     # Add heat to each box in box list
     heat = add_heat(heat, box_list)
+    threshold = max(5, np.percentile(heat, 97, interpolation='nearest'))
 
     # Apply threshold to help remove false positives
     heat = apply_threshold(heat, threshold)

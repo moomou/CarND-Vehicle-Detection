@@ -1,0 +1,69 @@
+{
+  "params": [
+    {
+      "ystart": 320,
+      "ystop": 400,
+      "scale": 1.3
+    },
+    {
+      "ystart": 320,
+      "ystop": 400,
+      "scale": 1.5
+    },
+    {
+      "ystart": 400,
+      "ystop": 500,
+      "scale": 1
+    },
+    {
+      "ystart": 400,
+      "ystop": 500,
+      "scale": 1.3
+    },
+    {
+      "ystart": 400,
+      "ystop": 500,
+      "scale": 1.5
+    },
+    {
+      "ystart": 420,
+      "ystop": 550,
+      "scale": 1.2
+    },
+    {
+      "ystart": 420,
+      "ystop": 550,
+      "scale": 1.3
+    },
+    {
+      "ystart": 420,
+      "ystop": 550,
+      "scale": 1.5
+    },
+    {
+      "ystart": 440,
+      "ystop": 560,
+      "scale": 1.5
+    },
+    {
+      "ystart": 440,
+      "ystop": 560,
+      "scale": 1.8
+    },
+    {
+      "ystart": 440,
+      "ystop": 560,
+      "scale": 2
+    },
+    {
+      "ystart": 400,
+      "ystop": 656,
+      "scale": 2
+    },
+    {
+      "ystart": 400,
+      "ystop": 656,
+      "scale": 3
+    }
+  ]
+}

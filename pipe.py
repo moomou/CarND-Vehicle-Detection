@@ -5,7 +5,6 @@ from importlib import reload
 from collections import defaultdict
 from moviepy.editor import VideoFileClip
 
-import deco
 import cv2
 import helper
 import helper2
@@ -14,9 +13,9 @@ import numpy as np
 
 import util
 from line import Line, xm_per_pix
-from hog_sample import find_cars
 from vehicle import (
     _load_hog_params,
+    find_all_cars,
     get_sliding_win,
     joblib,
     search_windows,
@@ -38,10 +37,6 @@ _state_cache_vehicle = defaultdict(dict)
 # Checkerboard pattern corners
 NX = 9
 NY = 6
-
-ystart = 400
-ystop = 656
-
 
 def _init_vehicle_pipe(h, w):
     hog_params = _load_hog_params()
@@ -172,7 +167,6 @@ def _heatmap_threshold(rgb_img, heatmap, threshold=3, debug_lv=0):
     return draw_img
 
 
-# @deco.synchronized
 def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
     global _state_cache_vehicle
     state = _state_cache_vehicle[state_id]
@@ -184,31 +178,21 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
         state = dict(counter=0, **_init_vehicle_pipe(h, w), **state)
         state['last_heatmaps'] = []
 
-    blur_img = cv2.GaussianBlur(rgb_img, (5, 5), 0)
-    windows = {}
-    windows[0] = find_cars(rgb_img, ystart, ystop, 1.5, state['svc'],
-                           state['X_scaler'], **state['hog_params'])
-    # windows[1] = find_cars(rgb_img, ystart, ystop, 1., state['svc'],
-    # state['X_scaler'], **state['hog_params'])
-    windows[2] = find_cars(blur_img, ystart, ystop, 1.5, state['svc'],
-                           state['X_scaler'], **state['hog_params'])
-    # windows[3] = find_cars(blur_img, ystart, ystop, 1., state['svc'],
-    # state['X_scaler'], **state['hog_params'])
-    hot_windows = windows[0] + windows[2]  # + windows[3]
+    hot_windows = find_all_cars(rgb_img, state)
     frame_heatmap = np.zeros_like(rgb_img).astype(np.float)
 
     add_heat(frame_heatmap, hot_windows)
 
     heatmap = np.copy(frame_heatmap)
-    for prev_heatmap in state['last_heatmaps']:
-        heatmap += prev_heatmap
+    for idx, prev_heatmap in enumerate(reversed(state['last_heatmaps'])):
+        heatmap += (0.98 ** idx) * prev_heatmap
 
     _debug = debug_lv >= 1 and (state['counter'] % 5 == 0)
 
     heatmap = np.clip(heatmap, 0, 255)
-    heatmap = apply_threshold(heatmap,
+    heatmap = apply_threshold(heatmap, max(11,
                               np.percentile(
-                                  heatmap, 97, interpolation='nearest'))
+                                  heatmap, 97, interpolation='nearest')))
     draw_img = draw_labeled_bboxes(
         rgb_img, heatmap, debug_lv=_debug and debug_lv)
 
@@ -233,8 +217,9 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
         plt.show()
 
     state['last_heatmaps'].append(frame_heatmap)
-    state['last_heatmaps'] = state['last_heatmaps'][:7]
+    state['last_heatmaps'] = state['last_heatmaps'][-8:]
     state['counter'] += 1
+
     _state_cache_vehicle[state_id] = state
 
     return draw_img

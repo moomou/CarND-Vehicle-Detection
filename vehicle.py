@@ -3,6 +3,7 @@ import glob
 import json
 import os
 
+import deco
 import matplotlib.image as mpimg
 import numpy as np
 import cv2
@@ -22,6 +23,7 @@ from sklearn.svm import LinearSVC
 import matplotlib.pyplot as plt
 
 import helper
+from hog_sample import find_cars
 from lesson_func import (
     heatmap,
     extract_features,
@@ -33,6 +35,8 @@ from lesson_func import (
     apply_threshold, )
 
 rand_state = 42
+with open('./search_params.json') as f:
+    search_params = json.load(f)
 
 
 def get_test_imgs(test_dir='./test_images'):
@@ -125,6 +129,23 @@ class HogEstimator(BaseEstimator):
 
     def fit(self, X, y=None):
         return self
+
+
+@deco.synchronized
+def find_all_cars(rgb_img, state):
+    windows = {}
+    for idx, sp in enumerate(search_params['params']):
+        ystart = sp['ystart']
+        ystop = sp['ystop']
+        scale = sp['scale']
+        windows[idx] = find_cars(rgb_img, ystart, ystop, scale, state['svc'],
+                                 state['X_scaler'], **state['hog_params'])
+
+    hot_windows = []
+    for idx in range(len(windows)):
+        hot_windows.extend(windows[idx])
+
+    return hot_windows
 
 
 def search(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
@@ -255,46 +276,27 @@ def train(car_dir='./vehicles', notcar_dir='non-vehicles', debug_lv=0):
 
 
 def test(test_out_dir='./output_images', debug_lv=0):
-    hog_params = _load_hog_params()
-
     imgs = get_test_imgs()
     h, w, c = imgs[0].shape
 
     svc = joblib.load('./svc.pickle')
     X_scaler = joblib.load('./xscaler.pickle')
-
-    all_windows1 = get_sliding_win(w, h, overlap=0.75)
-    all_windows2 = get_sliding_win(w, h, overlap=0.5)
-
-    if debug_lv >= 2:
-        window_img = np.copy(imgs[0])
-        # visualize search windows
-        for widx, win in enumerate(all_windows1):
-            color = (0, 0, 255)
-            if widx % 2 == 0:
-                color = (0, 255, 0)
-            # Draw the box on the image
-            cv2.rectangle(window_img, win[0], win[1], color, 6)
-        cv2.imwrite('window.png', window_img)
+    state = {
+        'hog_params': _load_hog_params(),
+        'svc': svc,
+        'X_scaler': X_scaler,
+    }
 
     for idx, orig_img in tqdm(enumerate(imgs)):
-        img = helper.gaussian_blur(orig_img, 5)
-        bimg = img.astype(np.float32) / 255
-        img = orig_img.astype(np.float32) / 255
+        hot_windows = find_all_cars(orig_img, state)
 
-        hot_windows1 = search_windows(img, all_windows1, svc, X_scaler,
-                                      **hog_params)
-        hot_windows2 = search_windows(bimg, all_windows2, svc, X_scaler,
-                                      **hog_params)
-        hot_windows = hot_windows1 + hot_windows2
+        window_img = heatmap(orig_img, hot_windows, debug_lv=debug_lv)
 
-        window_img = heatmap(
-            orig_img, hot_windows, threshold=2, debug_lv=debug_lv)
         cv2.imwrite(os.path.join(test_out_dir, '%s.png' % idx), window_img)
 
         if debug_lv >= 1:
             window_img = draw_boxes(
-                np.copy(img), hot_windows, color=(0, 0, 255), thick=6)
+                np.copy(orig_img), hot_windows, color=(0, 0, 255), thick=6)
             plt.imshow(window_img)
             plt.show()
 
