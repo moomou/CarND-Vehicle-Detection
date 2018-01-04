@@ -190,7 +190,7 @@ def vehicle_pipe(rgb_img, state_id=None, debug_lv=0):
     _debug = debug_lv >= 1 and (state['counter'] % 5 == 0)
 
     heatmap = np.clip(heatmap, 0, 255)
-    heatmap = apply_threshold(heatmap, max(11,
+    heatmap = apply_threshold(heatmap, max(17,
                               np.percentile(
                                   heatmap, 97, interpolation='nearest')))
     draw_img = draw_labeled_bboxes(
