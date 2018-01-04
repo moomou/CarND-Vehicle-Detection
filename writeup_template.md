@@ -47,17 +47,17 @@ I then explored different color spaces and different `skimage.hog()` parameters 
 
 Here is an example using optimized parameters (see section below) for a car and noncar input.
 
-Car
 ![hog sample](asset/car_hog.png)
+*Car*
 
-Not car
 ![hog sample](asset/notcar_hog.png)
+*Not car*
 
 The code for HOG can be found in lesson_func.py `get_hog_features` and `single_img_features`.
 
 #### 2. Explain how you settled on your final choice of HOG parameters.
 
-To identify the best parameters for the HOG features, I utilized `RandomizedSearchCV` in scikit learn to search for best the best peforming parameters for over a few hundred images from car and non-car class.
+To identify the best parameters for the HOG features, I utilized `RandomizedSearchCV` in scikit learn to search for best the best peforming parameters for over a few hundred images from car and non-car class. This can be found in vehicle.py `search` function.
 
 After the experiment, I obtained the following parameters:
 ```
@@ -66,7 +66,7 @@ After the experiment, I obtained the following parameters:
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
-I trained a linear SVM as demonstrated in the lesson and the code can be found in vehicle.py.
+I trained a linear SVM as demonstrated in the lesson and the code can be found in vehicle.py under `train` function.
 
 For the detailed HOG parameters used, see the previous section. I was able to obtain test set accuracy of 98%.
 
@@ -82,25 +82,24 @@ The bottom half the image is divided into multiple thin slices and a 64 by 64 pi
 
 Given input image
 
-![sliding win](asset/start_img.png)
+![sliding win](asset/start_img.jpg)
 
 
 The generated slices where the alogrithm sweeps for vehicle detection look like the following in HLS colorspace (the one found by random search to be best performing):
 
-![window](se_320_400_1.3.png)
-![window](se_320_400_1.5.png)
-![window](se_400_500_1.3.png)
-![window](se_400_500_1.5.png)
-![window](se_400_500_1.png)
-![window](se_400_656_2.png)
-![window](se_400_656_3.png)
-![window](se_420_550_1.2.png)
-![window](se_420_550_1.3.png)
-![window](se_420_550_1.5.png)
-![window](se_440_560_1.5.png)
-![window](se_440_560_1.8.png)
-![window](se_440_560_2.png)
-
+![window](asset/se_320_400_1.3.png)
+![window](asset/se_320_400_1.5.png)
+![window](asset/se_400_500_1.3.png)
+![window](asset/se_400_500_1.5.png)
+![window](asset/se_400_500_1.png)
+![window](asset/se_400_656_2.png)
+![window](asset/se_400_656_3.png)
+![window](asset/se_420_550_1.2.png)
+![window](asset/se_420_550_1.3.png)
+![window](asset/se_420_550_1.5.png)
+![window](asset/se_440_560_1.5.png)
+![window](asset/se_440_560_1.8.png)
+![window](asset/se_440_560_2.png)
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
@@ -131,13 +130,11 @@ Additionally, using the assumption that vehicles move relatively slowly in each 
 
 Here's an example result showing the heatmap from a frames of video and before and after heatmap thresholding
 
-### Here are some frames and their corresponding heatmaps:
-
-Before #1
 ![Before](asset/before_detected_heatmap.png)
+*Before*
 
-After #1
 ![After](asset/detected_heatmap.png)
+*After*
 
 ---
 ### Discussion
@@ -148,6 +145,6 @@ The major issue faced in completing this assignment is the performance of the fr
 
 Another issue faced was the thresholding logic of the heatmap. Through trial and error, I concluded a constant threshold number is not robust enough and found percentile over the heatmap value worked well.
 
-The current pipeline works well in the sample video but will most likely fail in more challenging environment where rain, snow, etc. obstruct the vehicle. Additionally, the classifier is trained on the error view of the vehicle so cannot be adapted for the should check/rearview mirror vehicle detection. Similarly, it is important to benchmark vehicle detection right under different lighting conditions to make sure the system continues to work with headlights, sunlights, etc.
+The current pipeline works well in the sample video but will most likely fail in more challenging environment where rain, snow, etc. obstruct the vehicle. Additionally, the classifier is trained on the rear view of the vehicle so cannot be adapted for the shoulder check mirror or side mirror vehicle detection. Similarly, it is important to benchmark vehicle detection right under different lighting conditions to make sure the system continues to work with headlights, sunlights, effects etc.
 
-In order to make the whole pipeline more robust, applying CNN deep learning neural nets should reduce false positives while reducing the need for sliding window search; this will also help increase frame analysis performance. Finally, more training examples under different conditions would be helpful.
+In order to make the whole pipeline more robust, applying CNN deep learning neural nets should reduce false positives while reducing the need for sliding window search; this will also help increase frame analysis performance.

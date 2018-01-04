@@ -131,7 +131,7 @@ class HogEstimator(BaseEstimator):
         return self
 
 
-# @deco.synchronized
+@deco.synchronized
 def find_all_cars(rgb_img, state, debug_lv=0):
     windows = {}
     for idx, sp in enumerate(search_params['params']):

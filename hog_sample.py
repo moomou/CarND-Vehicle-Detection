@@ -29,7 +29,7 @@ def _find_car(patch, hog_features, svc, X_scaler, xleft, ystart, ytop, window,
 
 
 # Define a single function that can extract features using hog sub-sampling and make predictions
-# @deco.concurrent
+@deco.concurrent
 def find_cars(img,
               ystart,
               ystop,
