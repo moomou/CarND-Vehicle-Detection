@@ -47,11 +47,11 @@ I then explored different color spaces and different `skimage.hog()` parameters 
 
 Here is an example using optimized parameters (see section below) for a car and noncar input.
 
-![hog sample](asset/car_hog.png)
 *Car*
+![car hog](asset/car_hog.png)
 
-![hog sample](asset/notcar_hog.png)
 *Not car*
+![not car hog](asset/notcar_hog.png)
 
 The code for HOG can be found in lesson_func.py `get_hog_features` and `single_img_features`.
 
@@ -130,11 +130,11 @@ Additionally, using the assumption that vehicles move relatively slowly in each 
 
 Here's an example result showing the heatmap from a frames of video and before and after heatmap thresholding
 
-![Before](asset/before_detected_heatmap.png)
 *Before*
+![Before](asset/before_detected_heatmap.png)
 
-![After](asset/detected_heatmap.png)
 *After*
+![After](asset/detected_heatmap.png)
 
 ---
 ### Discussion
