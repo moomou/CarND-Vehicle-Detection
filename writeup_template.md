@@ -70,43 +70,66 @@ I trained a linear SVM as demonstrated in the lesson and the code can be found i
 
 For the detailed HOG parameters used, see the previous section. I was able to obtain test set accuracy of 98%.
 
+The trained model is saved in `svc.pickle`. The model can be retrained from scratch by running `./vehicle.py train`;
+
 ### Sliding Window Search
 
 #### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-The sliding window search can be found in vehicle.py `get_sliding_win`; this function utilizes the sliding window function from the lesson.
+The sliding window search paramters can be found in `./search_params.json`. The actual function is adapted from the lesson and can be found in hog_sample.py.
 
-The search strategy is conducted using 64x64px windows. The actual region each window type sweep can be seen in the following image.
+The bottom half the image is divided into multiple thin slices and a 64 by 64 pixel sliding window is sweeped across using overlap of 3 pixels. This strategy is obtained through trial and error while optimizing for speed of frame analysis as well as heuristically estimating the size of the vehicles in different y positions in the image.
 
-![sliding win](asset/window.png)
+Given input image
 
-The scale and overlap ratio was best trial and error and the intuition that the classifier is trained on 64x64px patches so I used that as the minimum size box.
+![sliding win](asset/start_img.png)
+
+
+The generated slices where the alogrithm sweeps for vehicle detection look like the following in HLS colorspace (the one found by random search to be best performing):
+
+![window](se_320_400_1.3.png)
+![window](se_320_400_1.5.png)
+![window](se_400_500_1.3.png)
+![window](se_400_500_1.5.png)
+![window](se_400_500_1.png)
+![window](se_400_656_2.png)
+![window](se_400_656_3.png)
+![window](se_420_550_1.2.png)
+![window](se_420_550_1.3.png)
+![window](se_420_550_1.5.png)
+![window](se_440_560_1.5.png)
+![window](se_440_560_1.8.png)
+![window](se_440_560_2.png)
 
 
 #### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
-Ultimately I searched on two frames with 2 different sliding windows overlapping rations, specifically 0.75 and 0.5. Additionally, one of the frame is blurred to remove potential noises. In terms of performance of optimization, I run the 2 separate search in parallel using python multiprocessing via `deco` library. Further optimization of finer grain parallelism is possible.
+Using the search parameters in `search_params.json` (visualized in the previous section), here is an example of the output for the test images.
 
-Example as applied to test images
-![Ex1](asset/0.png)
+![img1](./output_images/0.png)
+![img2](./output_images/1.png)
+![img3](./output_images/2.png)
+![img4](./output_images/3.png)
+![img5](./output_images/4.png)
+![img6](./output_images/5.png)
 
-![Ex2](asset/1.png)
+In order to optimize the performance, searching across the different horizontal slices are done in parallel using the `deco` multiprocessing library.
 
 ---
 
 ### Video Implementation
 
 #### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (somewhat wobbly or unstable bounding boxes are ok as long as you are identifying the vehicles most of the time with minimal false positives.)
-Here's a [link to my video result](./project_video.mp4)
+Here's a [link to my video result](./test_videos_output/project_video.mp4)
 
 
 #### 2. Describe how (and identify where in your code) you implemented some kind of filter for false positives and some method for combining overlapping bounding boxes.
 
-I recorded the positions of positive detections in each frame of the video.  From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.
+I recorded the positions of positive detections in each frame of the video. From the positive detections I created a heatmap and then thresholded that map to identify vehicle positions.  I then used `scipy.ndimage.measurements.label()` to identify individual blobs in the heatmap.  I then assumed each blob corresponded to a vehicle.  I constructed bounding boxes to cover the area of each blob detected.
 
-Additionally, using the assumption that vehicles move relatively slowly in each frame, I retain heatmap values over long periods and decrement heatmap values slowly every frame divisible by 13. See code in pipe.py `vehicle_pipe`
+Additionally, using the assumption that vehicles move relatively slowly in each frame, I retain heatmap values over 8 frames and exponentially decrease the effect of the older frames (see line 188 in pipe.py) as well as threshold the final heatmap using the 97 percentile value.
 
-Here's an example result showing the heatmap from a series of frames of video and before and after heatmap thresholding
+Here's an example result showing the heatmap from a frames of video and before and after heatmap thresholding
 
 ### Here are some frames and their corresponding heatmaps:
 
@@ -116,17 +139,15 @@ Before #1
 After #1
 ![After](asset/detected_heatmap.png)
 
-Before #1
-![Before](asset/before_detected_heatmap.png)
-
-After #1
-![After](asset/detected_heatmap.png)
-
 ---
-
 ### Discussion
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.
+The major issue faced in completing this assignment is the performance of the frame analysis. Initially, I was searching across the entire frame and generating HOG features in each sliding window as initial proof of concept but the performance was too slow to do effective trial and error on what sliding window approach worked best. Following the lecture suggestions, I was able to adapt the HOG sampling function to obtain good performance along with multiprocessing module in python.
 
+Another issue faced was the thresholding logic of the heatmap. Through trial and error, I concluded a constant threshold number is not robust enough and found percentile over the heatmap value worked well.
+
+The current pipeline works well in the sample video but will most likely fail in more challenging environment where rain, snow, etc. obstruct the vehicle. Additionally, the classifier is trained on the error view of the vehicle so cannot be adapted for the should check/rearview mirror vehicle detection. Similarly, it is important to benchmark vehicle detection right under different lighting conditions to make sure the system continues to work with headlights, sunlights, etc.
+
+In order to make the whole pipeline more robust, applying CNN deep learning neural nets should reduce false positives while reducing the need for sliding window search; this will also help increase frame analysis performance. Finally, more training examples under different conditions would be helpful.

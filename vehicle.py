@@ -131,15 +131,22 @@ class HogEstimator(BaseEstimator):
         return self
 
 
-@deco.synchronized
-def find_all_cars(rgb_img, state):
+# @deco.synchronized
+def find_all_cars(rgb_img, state, debug_lv=0):
     windows = {}
     for idx, sp in enumerate(search_params['params']):
         ystart = sp['ystart']
         ystop = sp['ystop']
         scale = sp['scale']
-        windows[idx] = find_cars(rgb_img, ystart, ystop, scale, state['svc'],
-                                 state['X_scaler'], **state['hog_params'])
+        windows[idx] = find_cars(
+            rgb_img,
+            ystart,
+            ystop,
+            scale,
+            state['svc'],
+            state['X_scaler'],
+            debug_lv=debug_lv,
+            **state['hog_params'])
 
     hot_windows = []
     for idx in range(len(windows)):
@@ -288,7 +295,7 @@ def test(test_out_dir='./output_images', debug_lv=0):
     }
 
     for idx, orig_img in tqdm(enumerate(imgs)):
-        hot_windows = find_all_cars(orig_img, state)
+        hot_windows = find_all_cars(orig_img, state, debug_lv)
 
         window_img = heatmap(orig_img, hot_windows, debug_lv=debug_lv)
 

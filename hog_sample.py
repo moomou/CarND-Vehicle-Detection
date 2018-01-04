@@ -29,19 +29,37 @@ def _find_car(patch, hog_features, svc, X_scaler, xleft, ystart, ytop, window,
 
 
 # Define a single function that can extract features using hog sub-sampling and make predictions
-@deco.concurrent
-def find_cars(img, ystart, ystop, scale, svc, X_scaler, orient, pix_per_cell,
-              cell_per_block, spatial_size, hist_bins, color_space):
+# @deco.concurrent
+def find_cars(img,
+              ystart,
+              ystop,
+              scale,
+              svc,
+              X_scaler,
+              orient,
+              pix_per_cell,
+              cell_per_block,
+              spatial_size,
+              hist_bins,
+              color_space,
+              debug_lv=0):
     if type(spatial_size) != tuple:
         spatial_size = (spatial_size, spatial_size)
-    img = img.astype(np.float32) / 255
 
-    img_tosearch = img[ystart:ystop, :, :]
-    ctrans_tosearch = convert_color(img_tosearch, conv='RGB2%s' % color_space)
+    img_ = img.astype(np.float32) / 255
+    selector = slice(ystart, ystop)
+
+    ctrans_tosearch = convert_color(
+        img_[selector, :, :], conv='RGB2%s' % color_space)
+
     if scale != 1:
         imshape = ctrans_tosearch.shape
-        ctrans_tosearch = cv2.resize(ctrans_tosearch, (np.int(
-            imshape[1] / scale), np.int(imshape[0] / scale)))
+        scale_param = (np.int(imshape[1] / scale), np.int(imshape[0] / scale))
+        ctrans_tosearch = cv2.resize(ctrans_tosearch, scale_param)
+
+    if debug_lv >= 2:
+        cv2.imwrite('se_%s_%s_%s.png' % (ystart, ystop, scale),
+                    ctrans_tosearch)
 
     ch1 = ctrans_tosearch[:, :, 0]
     ch2 = ctrans_tosearch[:, :, 1]
