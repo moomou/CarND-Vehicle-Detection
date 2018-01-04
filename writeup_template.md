@@ -131,9 +131,11 @@ Additionally, using the assumption that vehicles move relatively slowly in each 
 Here's an example result showing the heatmap from a frames of video and before and after heatmap thresholding
 
 *Before*
+
 ![Before](asset/before_detected_heatmap.png)
 
 *After*
+
 ![After](asset/detected_heatmap.png)
 
 ---
